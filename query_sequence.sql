@@ -1,0 +1,83 @@
+drop SEQUENCE 회원_seq;
+
+CREATE SEQUENCE 회원_seq
+    START WITH 99951
+    INCREMENT BY 1;
+
+drop SEQUENCE 최근본상품_seq;
+
+CREATE SEQUENCE 최근본상품_seq
+    START WITH 100001
+    INCREMENT BY 1;
+
+drop SEQUENCE 개인문의_seq;
+
+CREATE SEQUENCE 개인문의_seq
+    START WITH 150001
+    INCREMENT BY 1;
+
+drop SEQUENCE 쿠폰_seq;
+
+CREATE SEQUENCE 쿠폰_seq
+    START WITH 51
+    INCREMENT BY 1;
+
+drop SEQUENCE 이벤트_seq;
+
+CREATE SEQUENCE 이벤트_seq
+    START WITH 20
+    INCREMENT BY 1;
+
+drop SEQUENCE 장바구니_seq;
+
+CREATE SEQUENCE 장바구니_seq
+    START WITH 100001
+    INCREMENT BY 1;
+
+drop SEQUENCE 상품문의_seq;
+
+CREATE SEQUENCE 상품문의_seq
+    START WITH 150001
+    INCREMENT BY 1;
+
+drop SEQUENCE 쿠폰이력_seq;
+
+CREATE SEQUENCE 쿠폰이력_seq
+    START WITH 400001
+    INCREMENT BY 1;
+
+drop SEQUENCE 포인트_seq;
+
+CREATE SEQUENCE 포인트_seq
+    START WITH 350001
+    INCREMENT BY 1;
+
+drop SEQUENCE 주문_seq;
+
+CREATE SEQUENCE 주문_seq
+    START WITH 350001
+    INCREMENT BY 1;
+
+drop SEQUENCE 주문상세_seq;
+
+CREATE SEQUENCE 주문상세_seq
+    START WITH 1000001
+    INCREMENT BY 1;
+
+drop SEQUENCE 배송_seq;
+
+CREATE SEQUENCE 배송_seq
+    START WITH 350001
+    INCREMENT BY 1;
+
+drop SEQUENCE 결제_seq;
+
+CREATE SEQUENCE 결제_seq
+    START WITH 350001
+    INCREMENT BY 1;
+
+drop SEQUENCE 리뷰_seq;
+
+CREATE SEQUENCE 리뷰_seq
+    START WITH 500001
+    INCREMENT BY 1;

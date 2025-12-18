@@ -6,13 +6,23 @@ import csv
 from functools import partial
 import oracledb
 
-oracledb.init_oracle_client(lib_dir=r"D:\\instantclient_23_9")
+oracledb.init_oracle_client(lib_dir=r"C:\instant_client\instantclient_21_19")
 
 conn = oracledb.connect(
-    user="KMJ",
-    password="DBStudy2025!",
-    dsn="dbstudy1205_medium"
+    user="KMJ",          # 사용자명
+    password="DBStudy2025!",      # 비밀번호
+    dsn="dbstudy1205_medium" # 접속 정보 (SQL Developer와 동일)
 )
+cur = conn.cursor()
+
+def random_date2025():
+    start_date = datetime(2025, 1, 1)
+    end_date = datetime(2025, 12, 31)
+
+    delta_days = (end_date - start_date).days
+
+    random_date = start_date + timedelta(days=random.randint(0, delta_days))
+    return random_date.date()
 
 # 테이블 불러오기
 
@@ -36,17 +46,17 @@ conn = oracledb.connect(
 
 # delivery_df = pd.read_sql('select * from 배송', conn)
 # pay_df = pd.read_sql('select * from 결제', conn)
-review_df = pd.read_sql('select * from 리뷰', conn)
-o_od = pd.read_sql('''
-                   SELECT 주문상세.상품ID, 주문.회원ID, 주문.주문날짜 
-                   from 주문상세
-				   JOIN 주문
-				   on 주문.주문ID = 주문상세.주문ID
-                   where rownum <=500000
-                   ''',conn)
+# review_df = pd.read_sql('select * from 리뷰', conn)
+# o_od = pd.read_sql('''
+#                    SELECT 주문상세.상품ID, 주문.회원ID, 주문.주문날짜 
+#                    from 주문상세
+# 				   JOIN 주문
+# 				   on 주문.주문ID = 주문상세.주문ID
+#                    where rownum <=500000
+#                    ''',conn)
 
 
-conn.close()
+# conn.close()
 
 # order_ids = order_df['주문ID'].tolist()
 # product_ids = product_df['상품ID'].tolist()
@@ -56,7 +66,7 @@ conn.close()
 
 # delivery_df_cols = list(delivery_df.columns)
 
-review_df_cols = list(review_df.columns)
+# review_df_cols = list(review_df.columns)
 
 # def generate_personal_q(seq, cols):
 #     data = [
@@ -96,14 +106,22 @@ review_df_cols = list(review_df.columns)
     
 #     return dict(zip(cols, data))
 
-# def coupon_record(seq, cols):
-#     data = [
-# 			int(seq),
-# 			int(random.choice(coupon_ids)),
-# 			int(random.choice(user_ids)),
-# 			'N'			
-# 	]
-#     return dict(zip(cols, data))
+coupon = pd.read_sql('select 쿠폰ID from 쿠폰',conn)['쿠폰ID'].tolist()
+user = pd.read_sql('select 회원ID from 쿠폰',conn)['회원ID'].tolist()
+coupon_r = pd.read_sql('select * from 쿠폰이력',conn)
+
+conn.close()
+
+def coupon_record(seq, cols):
+    data = [
+			int(seq),
+			int(random.choice(coupon)),
+			int(random.choice(user)),
+			random.choice(['Y','N'])			
+	]
+    return dict(zip(cols, data))
+
+coupon_r_cols = list(coupon_r.columns())
 
 # def order(seq, cols):
 #     data = [
@@ -112,7 +130,7 @@ review_df_cols = list(review_df.columns)
 #             int(seq), # 결제ID
 #             '주문완료', # 주문상태
 #             int(random.choice(range(0, 10000, 100))), # 사용포인트
-#             coupon_min_date['MIN(시작날짜)'].iloc[0] + timedelta(days=random.randint(10,35)) # 주문날짜
+#             random_date2025() # 주문날짜 (2025-01-01 ~ 2025-12-31)
 # 	]
 #     return dict(zip(cols, data))
 
@@ -168,40 +186,40 @@ import random
 #     ]
 #     return dict(zip(cols, data))
 
-records = [
-    {'seq': i + 1, **row}
-    for i, row in enumerate(o_od.to_dict('records')) # seq, 결제ID, 주문ID, 주문날짜
-]
+# records = [
+#     {'seq': i + 1, **row}
+#     for i, row in enumerate(o_od.to_dict('records')) # seq, 결제ID, 주문ID, 주문날짜
+# ]
 
-def review(record, cols):
-    data = [
-        int(record['seq']),
-        int(record['상품ID']),
-        int(record['회원ID']),
-        random.randint(1,5),
-        '리뷰 내용',
-        pd.to_datetime(record['주문날짜']),
-        'N'
-    ]
-    return dict(zip(cols, data))
-    
+# def review(record, cols):
+#     data = [
+#         int(record['seq']),
+#         int(record['상품ID']),
+#         int(record['회원ID']),
+#         random.randint(1,5),
+#         '리뷰 내용',
+#         pd.to_datetime(record['주문날짜']),
+#         'N'
+#     ]
+#     return dict(zip(cols, data))
+
 
 if __name__ == "__main__":
-    gen_func = partial(review, cols=review_df_cols)
+    gen_func = partial(coupon_record, cols=coupon_r_cols)
 
     with open(
-        "데이터_리뷰테이블.csv",
+        "데이터_쿠폰이력테이블.csv",
         "w",
         newline="",
         encoding="utf-8-sig"
     ) as f:
-        writer = csv.DictWriter(f, fieldnames=review_df_cols)
+        writer = csv.DictWriter(f, fieldnames=coupon_r_cols)
         writer.writeheader()
         
         with Pool(processes=cpu_count() // 2) as pool:
             for result in pool.imap_unordered(
                 gen_func,
-                records,
+                range(1,1000001),
                 chunksize=500
             ):
                 writer.writerow(result)

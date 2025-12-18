@@ -123,3 +123,122 @@ GROUP BY m.회원ID
 ORDER BY 주문건수 DESC
 FETCH FIRST 5 ROWS ONLY;
 
+
+-- 여기부터는 인덱스 없으니깐 버벅거림
+
+-- 14. 최근 3개월 회원별 실결제 금액 + 주문 수 + 평균 주문금액
+SELECT
+    m.회원ID,
+    COUNT(DISTINCT o.주문ID)              AS 주문건수,
+    SUM(p.총상품금액 + p.배송비)           AS 총구매금액,
+    AVG(p.총상품금액 + p.배송비)           AS 평균주문금액
+FROM 회원 m
+JOIN 주문 o   ON m.회원ID = o.회원ID
+JOIN 결제 p   ON o.주문ID = p.주문ID
+JOIN 배송 d   ON o.주문ID = d.주문ID
+  AND p.결제날짜 + 3 <= SYSDATE - 7
+  AND p.결제날짜 + 3 >= ADD_MONTHS(TRUNC(SYSDATE), -3)
+GROUP BY m.회원ID;
+
+-- 15. 최근 6개월간 재구매율
+SELECT
+    COUNT(DISTINCT CASE WHEN 주문횟수 >= 2 THEN 회원ID END)
+    / COUNT(DISTINCT 회원ID) * 100 AS 재구매율
+FROM (
+    SELECT
+        m.회원ID,
+        COUNT(o.주문ID) AS 주문횟수
+    FROM 회원 m
+    JOIN 주문 o ON m.회원ID = o.회원ID
+    WHERE o.주문날짜 >= ADD_MONTHS(TRUNC(SYSDATE), -6)
+    GROUP BY m.회원ID
+);
+
+-- 16. 쿠폰 발급 대비 실제 사용률
+SELECT
+    k.쿠폰ID,
+    COUNT(h.쿠폰이력ID)                           AS 발급수,
+    COUNT(CASE WHEN h.사용여부 = 'Y' THEN 1 END) AS 사용수,
+    ROUND(
+        COUNT(CASE WHEN h.사용여부 = 'Y' THEN 1 END)
+        / COUNT(h.쿠폰이력ID) * 100, 2
+    ) AS 사용률
+FROM 쿠폰 k
+JOIN 쿠폰이력 h ON k.쿠폰ID = h.쿠폰ID
+GROUP BY k.쿠폰ID;
+
+-- 17. 상품별 “장바구니 담김 → 구매 전환율”
+SELECT
+    p.상품ID,
+    COUNT(DISTINCT c.회원ID) AS 장바구니담김회원수,
+    COUNT(DISTINCT o.회원ID) AS 구매회원수,
+    case when COUNT(DISTINCT o.회원ID) > 0 and
+    COUNT(DISTINCT c.회원ID) > 0 then 
+    ROUND(
+        COUNT(DISTINCT o.회원ID)
+        / COUNT(DISTINCT c.회원ID) * 100, 2
+    ) else 0 end as 전환율
+FROM 상품 p
+LEFT JOIN 장바구니 c ON p.상품ID = c.상품ID
+LEFT JOIN 주문상세 od ON p.상품ID = od.상품ID
+LEFT JOIN 주문 o ON od.주문ID = o.주문ID
+GROUP BY p.상품ID;
+
+-- 18. 회원별 쿠폰 사용으로 절감한 총 금액
+SELECT
+    m.회원ID,
+    SUM(c.할인금액) AS 쿠폰절감액
+FROM 회원 m
+JOIN 쿠폰이력 h ON m.회원ID = h.회원ID
+JOIN 쿠폰 c ON h.쿠폰ID = c.쿠폰ID
+WHERE h.사용여부 = 'Y'
+GROUP BY m.회원ID;
+
+-- 19. 상품별 리뷰 작성률 (구매 대비)
+SELECT
+    p.상품ID,
+    COUNT(DISTINCT r.리뷰ID) / COUNT(DISTINCT od.주문상세ID) * 100
+        AS 리뷰작성률
+FROM 상품 p
+JOIN 주문상세 od ON p.상품ID = od.상품ID
+LEFT JOIN 리뷰 r ON od.상품ID = r.상품ID
+GROUP BY p.상품ID;
+
+-- 20. 장바구니에 담고 구매 안 한 회원 (최근 30일)
+SELECT DISTINCT
+    c.회원ID
+FROM 장바구니 c
+LEFT JOIN 주문 o
+  ON c.회원ID = o.회원ID
+ AND o.주문날짜 >= c.추가날짜
+WHERE c.추가날짜 >= SYSDATE - 30
+  AND o.주문ID IS NULL;
+
+-- 21. 회원별 쿠폰 사용 / 미사용 평균 결제금액
+WITH 쿠폰사용회원 AS (
+    SELECT DISTINCT 회원ID
+    FROM 쿠폰이력
+    WHERE 사용여부 = 'Y'
+),
+회원주문 AS (
+    SELECT
+        o.회원ID,
+        p.총상품금액 + p.배송비 as 실결제금액,
+        CASE
+            WHEN cs.회원ID IS NOT NULL THEN 'Y'
+            ELSE 'N'
+        END AS 쿠폰사용여부
+    FROM 주문 o
+    JOIN 결제 p ON o.주문ID = p.주문ID
+    LEFT JOIN 쿠폰사용회원 cs
+           ON o.회원ID = cs.회원ID
+)
+SELECT
+    회원ID,
+    AVG(CASE WHEN 쿠폰사용여부 = 'Y' THEN 실결제금액 END)
+        AS 쿠폰사용평균결제금액,
+    AVG(CASE WHEN 쿠폰사용여부 = 'N' THEN 실결제금액 END)
+        AS 쿠폰미사용평균결제금액
+FROM 회원주문
+GROUP BY 회원ID;
+

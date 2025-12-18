@@ -6,7 +6,10 @@ import csv
 from functools import partial
 import oracledb
 
-oracledb.init_oracle_client(lib_dir=r"C:\instant_client\instantclient_21_19")
+try:
+	oracledb.init_oracle_client(lib_dir=r"C:\instant_client\instantclient_21_19")
+except:
+    oracledb.init_oracle_client(lib_dir=r"D:\instantclient_23_9")
 
 conn = oracledb.connect(
     user="KMJ",          # 사용자명
@@ -106,22 +109,26 @@ def random_date2025():
     
 #     return dict(zip(cols, data))
 
-coupon = pd.read_sql('select 쿠폰ID from 쿠폰',conn)['쿠폰ID'].tolist()
-user = pd.read_sql('select 회원ID from 쿠폰',conn)['회원ID'].tolist()
-coupon_r = pd.read_sql('select * from 쿠폰이력',conn)
+# coupon = pd.read_sql('select 쿠폰ID from 쿠폰',conn)['쿠폰ID'].tolist()
+# user_ids = pd.read_sql('select 회원ID from 회원',conn)['회원ID'].tolist()
+# coupon_r = pd.read_sql('select * from 쿠폰이력',conn)
+# product_ids = pd.read_sql('select 상품ID from 상품',conn)['상품ID'].tolist()
+# order_ids = pd.read_sql('select 주문ID from 주문',conn)['주문ID'].tolist()
 
-conn.close()
+# order_detail_df = pd.read_sql('select * from 주문상세',conn)
+# order_detail_cols = list(order_detail_df.columns)
+# conn.close()
 
-def coupon_record(seq, cols):
-    data = [
-			int(seq),
-			int(random.choice(coupon)),
-			int(random.choice(user)),
-			random.choice(['Y','N'])			
-	]
-    return dict(zip(cols, data))
+# def coupon_record(seq, cols):
+#     data = [
+# 			int(seq),
+# 			int(random.choice(coupon)),
+# 			int(random.choice(user_ids)),
+# 			random.choice(['Y','N'])			
+# 	]
+#     return dict(zip(cols, data))
 
-coupon_r_cols = list(coupon_r.columns())
+# coupon_r_cols = list(coupon_r.columns)
 
 # def order(seq, cols):
 #     data = [
@@ -157,6 +164,33 @@ coupon_r_cols = list(coupon_r.columns())
 
 import random
 
+user = pd.read_sql('select * from 회원',conn)
+condi_df = pd.read_sql('''SELECT * from
+                        (SELECT a.주문ID, sum(a.상품금액) - sum(a.사용포인트) / COUNT(a.사용포인트) 상품금액,
+                        case when sum(a.상품금액) >= 30000 then 0 else 3000 end as 배송비
+                        from
+                        (SELECT o.주문ID, o.사용포인트, 원가 * ((100-할인율)/100) * od.주문수량 상품금액
+                        from 주문 o
+                            join 주문상세 od
+                                on o.주문ID = od.주문ID
+                            join 상품 p
+                                on od.상품ID = p.상품ID) a
+                        GROUP by a.주문ID) b''',conn)
+condi_df.reset_index(drop=True)
+
+
+records = [
+    {'seq': i + 1, **row}
+    for i, row in enumerate(condi_df.to_dict('records')) # seq, 결제ID, 주문ID, 주문날짜
+]
+
+delivery_df = pd.read_sql('select * from 배송',conn)
+
+conn.close()
+
+delivery_df_cols = list(delivery_df.columns)
+
+
 # def delivery(record, cols):
 #     seq = record['seq']
 #     order_id = record['주문ID']
@@ -186,10 +220,6 @@ import random
 #     ]
 #     return dict(zip(cols, data))
 
-# records = [
-#     {'seq': i + 1, **row}
-#     for i, row in enumerate(o_od.to_dict('records')) # seq, 결제ID, 주문ID, 주문날짜
-# ]
 
 # def review(record, cols):
 #     data = [
@@ -204,22 +234,24 @@ import random
 #     return dict(zip(cols, data))
 
 
+
+
 if __name__ == "__main__":
-    gen_func = partial(coupon_record, cols=coupon_r_cols)
+    gen_func = partial(delivery, cols=delivery_df_cols)
 
     with open(
-        "데이터_쿠폰이력테이블.csv",
+        "데이터_배송테이블.csv",
         "w",
         newline="",
         encoding="utf-8-sig"
     ) as f:
-        writer = csv.DictWriter(f, fieldnames=coupon_r_cols)
+        writer = csv.DictWriter(f, fieldnames=delivery_df_cols)
         writer.writeheader()
         
-        with Pool(processes=cpu_count() // 2) as pool:
+        with Pool(processes= cpu_count() - 3 ) as pool:
             for result in pool.imap_unordered(
                 gen_func,
-                range(1,1000001),
+                records, # or range(1, n)
                 chunksize=500
             ):
                 writer.writerow(result)

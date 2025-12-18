@@ -21,7 +21,7 @@ SELECT
     /* 상품군별 매출 */
     SUM(
         CASE
-            WHEN pr.상품분류 = '커피'
+            WHEN pr.상품분류 = '넘버 시리즈'
             THEN od.주문수량 * pr.원가 * (1 - pr.할인율 / 100)
             ELSE 0
         END
@@ -81,7 +81,7 @@ WHERE 1 = 1
 
   /* 날짜 밀집 + 함수 사용 (인덱스 무효 유지) */
   AND TO_CHAR(o.주문날짜, 'YYYY-MM-DD')
-      BETWEEN '2026-01-01' AND '2026-12-31'
+      BETWEEN '2025-01-01' AND '2025-12-31'
 
   /* 결제 완료 (대부분) */
   AND p.결제상태 = '결제완료'
